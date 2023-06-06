@@ -19,7 +19,7 @@
     <parent>
         <groupId>org.path.processors</groupId>
         <artifactId>nifi-schema-processor</artifactId>
-        <version>1.0-SNAPSHOT</version>
+        <version>1.0.1</version>
     </parent>
 
     <artifactId>nifi-schema-processors</artifactId>

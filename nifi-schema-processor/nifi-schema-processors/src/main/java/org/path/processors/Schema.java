@@ -164,6 +164,7 @@ public class Schema extends AbstractProcessor {
         descriptors.add(COLUMN_NAME);
         descriptors.add(COLUMN_TYPE);
         descriptors.add(REPLACE_COLUMN_NAME);
+        descriptors.add(COLUMN_AFTER);
         descriptors.add(INSERT_UPDATE_KEY);
         descriptors = Collections.unmodifiableList(descriptors);
 
@@ -193,12 +194,12 @@ public class Schema extends AbstractProcessor {
     public void onTrigger(final ProcessContext context, final ProcessSession session) {
         // Read processor properties
         final String databaseType = context.getProperty(DATABASE_TYPE).evaluateAttributeExpressions().getValue();
-        final String tableName = context.getProperty(TABLE_NAME).evaluateAttributeExpressions().getValue();
-        final String columnName = context.getProperty(COLUMN_NAME).evaluateAttributeExpressions().getValue();
-        final String columnType = context.getProperty(COLUMN_TYPE).evaluateAttributeExpressions().getValue();
-        final String replaceColumnName = context.getProperty(REPLACE_COLUMN_NAME).evaluateAttributeExpressions().getValue();
-        final String columnAfter = context.getProperty(COLUMN_AFTER).evaluateAttributeExpressions().getValue();
-        final String statusKey = context.getProperty(INSERT_UPDATE_KEY).evaluateAttributeExpressions().getValue();
+        final String tableName = context.getProperty(TABLE_NAME).getValue();
+        final String columnName = context.getProperty(COLUMN_NAME).getValue();
+        final String columnType = context.getProperty(COLUMN_TYPE).getValue();
+        final String replaceColumnName = context.getProperty(REPLACE_COLUMN_NAME).getValue();
+        final String columnAfter = context.getProperty(COLUMN_AFTER).getValue();
+        final String statusKey = context.getProperty(INSERT_UPDATE_KEY).getValue();
         int flowFileCount = 0;
 
         // Generate fragement UUID
@@ -239,9 +240,11 @@ public class Schema extends AbstractProcessor {
             for (int i = 0; i < jsonArray.length(); i++) {
                 // Get a JSONObject from the JSONArray
                 JSONObject jsonObject = jsonArray.getJSONObject(i);
+                
 
                 // Get the properties from the JSONObject
-                String cName = jsonObject.getString(columnName);
+                String cName = jsonObject.getString(columnName).replaceAll("\\s+","");
+
                 String cType = jsonObject.getString(columnType);
                 String status = jsonObject.getString(statusKey);
                 String replaceName = jsonObject.getString(replaceColumnName);
@@ -250,15 +253,15 @@ public class Schema extends AbstractProcessor {
 
                 // prepare the sql statement
                 String sql = "";
-                if (status == "insert") {
+                if (status.equals( "insert")) {
                     if(i == 0) {
-                        sql = "ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS " + columnName + " String AFTER " + columnAfter + ";";
+                        sql = String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s AFTER %s;", tableName, cName, cType, columnAfter);
                     } else {
-                        sql = "ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS " + columnName + " String AFTER " + prevColumnName  + ";";
+                        sql = String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s AFTER %s;", tableName, cName, cType, prevColumnName);
                     }
-                    prevColumnName = columnName;
+                    prevColumnName = cName;
                 } else {
-                    sql = "ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS " + columnName + " to " + replaceName + ";";
+                    sql = String.format("ALTER TABLE %s RENAME COLUMN IF EXISTS %s to %s;", tableName, cName, replaceName);
                 }
 
                 // write the sql statement in the flow file
@@ -268,7 +271,7 @@ public class Schema extends AbstractProcessor {
                 // set the segment original file name as attribute
                 attributes.put(SEGMENT_ORIGINAL_FILENAME.key(), sqlFlowFile.getAttribute(CoreAttributes.FILENAME.key()));
                 // set the fragement index
-                attributes.put(FRAGMENT_INDEX.key(), Integer.toString(i));
+                attributes.put(FRAGMENT_INDEX.key(), Integer.toString(i+1));
 
                 // transfer the SQL flow file to the success relationship
                 session.transfer(session.putAllAttributes(sqlFlowFile, attributes), REL_SUCCESS);
