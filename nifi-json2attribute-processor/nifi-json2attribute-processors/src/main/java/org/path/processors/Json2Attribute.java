@@ -124,7 +124,8 @@ public class Json2Attribute extends AbstractProcessor {
 
             for (String key : jsonObject.keySet()) {
                 JsonElement jsonValue = jsonObject.get(key);
-                String stringValue = new Gson().toJson(jsonValue);
+                // String stringValue = new Gson().toJson(jsonValue);
+                String stringValue = jsonValue.getAsString().replaceAll("\\s+", "");
                 attributes.put(key, stringValue);
             }
 
